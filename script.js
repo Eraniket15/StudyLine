@@ -6,25 +6,23 @@ const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d }
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch {} }
 const midnight = () => { const t = new Date(); t.setHours(0, 0, 0, 0); return t }
 
-// Small helper to build DOM safely (textContent, so user input can't inject HTML)
 function el(tag, props = {}, ...kids) {
   const n = Object.assign(document.createElement(tag), props)
   kids.forEach((k) => n.append(k))
   return n
 }
-// Each subject gets its own colour, derived from its name
 const col = (name) => { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 55% 45%)` }
 
 const state = {
   subjects: load('sp-subjects', []),
   hours: load('sp-hours', 4),
-  done: load('sp-done', {}),          // blockId -> hours completed
+  done: load('sp-done', {}),          
   dark: load('sp-dark', false),
-  focus: load('sp-focus', {}),        // date -> focus minutes
+  focus: load('sp-focus', {}),       
   view: load('sp-view', 'week'),
+  topics: load('sp-topics', {}),      
 }
 
-// Core scheduler: harder subjects and closer exams get more hours each day.
 function buildPlan(subjects, hoursPerDay) {
   const today = midnight()
   const live = subjects.filter((s) => at(s.date) > today)
@@ -44,7 +42,6 @@ function buildPlan(subjects, hoursPerDay) {
   return plan
 }
 
-// Days in a row (up to today) with at least one finished session or focus block
 function streak() {
   const days = new Set([
     ...Object.entries(state.done).filter(([, v]) => v).map(([k]) => k.slice(0, 10)),
@@ -67,7 +64,7 @@ function render() {
   const chips = $('#chips'); chips.replaceChildren()
   state.subjects.forEach((s) => {
     const x = el('button', { className: 'x', textContent: '×', ariaLabel: `Remove ${s.name}` })
-    x.onclick = () => { state.subjects = state.subjects.filter((v) => v.id !== s.id); save('sp-subjects', state.subjects); render() }
+    x.onclick = () => { state.subjects = state.subjects.filter((v) => v.id !== s.id); delete state.topics[s.id]; save('sp-subjects', state.subjects); save('sp-topics', state.topics); render() }
     const dot = el('i', { className: 'dot' }); dot.style.background = col(s.name)
     chips.append(el('li', {}, dot, `${s.name} · ${s.date}`, x))
   })
@@ -84,7 +81,6 @@ function render() {
   $('#barFill').style.width = pct + '%'
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t.dataset.v === state.view))
 
-  // Stats tiles
   const hoursDone = Object.values(state.done).reduce((a, v) => a + (+v || 0), 0)
   $('#tiles').replaceChildren(
     tile('🔥', streak() + (streak() === 1 ? ' day' : ' days'), 'streak'),
@@ -93,19 +89,20 @@ function render() {
     tile('📝', new Set(all.map((b) => b.sid)).size, 'exams ahead'),
   )
 
-  // Exam countdown cards with per-subject progress
+ 
   const today = midnight()
   $('#exams').replaceChildren(...state.subjects.filter((s) => at(s.date) > today).sort((a, b) => at(a.date) - at(b.date)).map((s) => {
     const left = Math.round((at(s.date) - today) / DAY)
     const mine = all.filter((b) => b.sid === s.id), d = mine.filter((b) => state.done[b.id]).length
     const bar = el('div', { className: 'bar' }, el('div')); bar.firstChild.style.width = (mine.length ? (d / mine.length) * 100 : 0) + '%'
+    const tb = el('button', { className: 'ghost mini', textContent: state.topics[s.id] ? '↻ New topics' : '✨ AI topics' })
+    tb.onclick = () => genTopics(s, tb)
     const c = el('div', { className: 'exam' + (left <= 3 ? ' hot' : '') }, el('b', { textContent: s.name }),
-      el('span', { textContent: left === 1 ? 'Tomorrow!' : `${left} days left` }), bar)
+      el('span', { textContent: left === 1 ? 'Tomorrow!' : `${left} days left` }), bar, tb)
     c.style.setProperty('--c', col(s.name))
     return c
   }))
 
-  // Next 7 days chart (planned vs done hours)
   const wk = plan.slice(0, 7)
   const max = Math.max(1, ...wk.map((d) => d.blocks.reduce((a, b) => a + b.hours, 0)))
   $('#chart').replaceChildren(...wk.map((d) => {
@@ -117,7 +114,20 @@ function render() {
       el('small', { textContent: at(d.date).toLocaleDateString(undefined, { weekday: 'short' }) }))
   }))
 
-  // Day cards (filtered by tab)
+  const tp = $('#topics'); tp.replaceChildren()
+  state.subjects.filter((s) => state.topics[s.id]).forEach((s) => {
+    const list = state.topics[s.id]
+    const g = el('div', { className: 'exam' }, el('b', { textContent: `${s.name} · ${list.filter((x) => x.done).length}/${list.length}` }))
+    g.style.setProperty('--c', col(s.name))
+    list.forEach((x) => {
+      const cb = el('input', { type: 'checkbox', checked: x.done })
+      cb.onchange = () => { x.done = cb.checked; save('sp-topics', state.topics); render() }
+      g.append(el('label', { className: 'block' + (x.done ? ' done' : '') }, cb, el('span', { textContent: x.t })))
+    })
+    tp.append(g)
+  })
+  $('#topicsPanel').hidden = !tp.children.length
+
   const t0 = iso(new Date())
   const shown = state.view === 'today' ? plan.filter((d) => d.date === t0) : state.view === 'week' ? plan.slice(0, 7) : plan
   const days = $('#days'); days.replaceChildren()
@@ -150,7 +160,6 @@ function render() {
   })
 }
 
-// ---------- Focus timer ----------
 const T = { total: 1500, left: 1500, endAt: 0, id: null, mode: 'Focus 25', subject: '' }
 const fmt = (s) => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0')
 function drawTimer() {
@@ -185,7 +194,6 @@ $('#startBtn').onclick = () => { if (T.id) { stop(); drawTimer() } else startTim
 $('#resetBtn').onclick = () => { stop(); T.left = T.total; drawTimer() }
 document.querySelectorAll('.pre').forEach((b) => b.onclick = () => setMode(+b.dataset.min, b.dataset.label))
 
-// ---------- Fun + helpers ----------
 let toastTimer
 function toast(msg) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false
@@ -200,7 +208,6 @@ function burst() {
   }
 }
 
-// Export the plan as a calendar file (.ics) for Google / Apple / Outlook calendar
 function exportICS() {
   const plan = buildPlan(state.subjects, state.hours)
   if (!plan.length) return toast('Add a subject first.')
@@ -214,7 +221,6 @@ function exportICS() {
   a.click(); toast('Calendar file downloaded 📅')
 }
 
-// ---------- Events ----------
 $('#add').onclick = () => {
   const name = $('#name').value.trim(), date = $('#date').value
   if (!name || !date) return toast('Enter a subject name and exam date.')
@@ -230,7 +236,6 @@ $('#theme').onclick = () => { state.dark = !state.dark; save('sp-dark', state.da
 $('#ics').onclick = exportICS
 document.querySelectorAll('.tab').forEach((t) => t.onclick = () => { state.view = t.dataset.v; save('sp-view', state.view); render() })
 
-// Generates tailored tips locally — no server, no API key, no billing, ever.
 function generateTips(subjects, hoursPerDay) {
   const today = midnight()
   const live = subjects.filter((s) => at(s.date) > today)
@@ -267,27 +272,51 @@ function generateTips(subjects, hoursPerDay) {
   return tips.slice(0, 5)
 }
 
-$('#tipsBtn').onclick = async () => {
-  const btn = $('#tipsBtn'), out = $('#tipsOut')
-  btn.disabled = true; btn.textContent = 'Thinking…'; out.hidden = true
-  let tips
-  try {
-    const r = await fetch('/api/tips', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subjects: state.subjects, hours: state.hours }),
-    })
-    if (!r.ok) throw new Error('AI unavailable')
-    const data = await r.json()
-    if (!data.tips) throw new Error('empty')
-    tips = data.tips
-  } catch {
-    // Falls back silently to local rule-based tips — the demo never shows an error.
-    tips = generateTips(state.subjects, state.hours).map((t) => `• ${t}`).join('\n')
+async function ai(mode, extra = {}) {
+  const t0 = iso(new Date()), plan = buildPlan(state.subjects, state.hours), all = plan.flatMap((d) => d.blocks)
+  const body = {
+    mode, hours: state.hours,
+    subjects: state.subjects.map(({ name, date, difficulty }) => ({ name, date, difficulty })),
+    stats: {
+      streak: streak(), focusTodayMin: Math.round(state.focus[t0] || 0),
+      completedPct: all.length ? Math.round((all.filter((b) => state.done[b.id]).length / all.length) * 100) : 0,
+      today: (plan.find((d) => d.date === t0)?.blocks || []).map((b) => ({ subject: b.subject, hours: b.hours, done: !!state.done[b.id] })),
+    },
+    ...extra,
   }
-  out.textContent = tips
-  out.hidden = false
-  btn.disabled = false
-  btn.textContent = 'Get AI study tips'
+  const r = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  if (!r.ok) throw new Error('AI unavailable')
+  return r.json()
+}
+const NO_AI = 'AI is not connected yet. Deploy on Vercel and set GEMINI_API_KEY (see README).'
+
+$('#tipsBtn').onclick = async () => {
+  const btn = $('#tipsBtn'), out = $('#tipsOut'), src = $('#tipsSrc')
+  btn.disabled = true; btn.textContent = 'Thinking…'; out.hidden = true
+  let text, label = '✨ From your AI coach'
+  try { text = (await ai('coach')).text }
+  catch { text = generateTips(state.subjects, state.hours).map((t) => `• ${t}`).join('\n'); label = 'Offline tips (AI not connected)' }
+  out.textContent = text; out.hidden = false; src.textContent = label; src.hidden = false
+  btn.disabled = false; btn.textContent = '✨ Get AI coach advice'
+}
+
+$('#askBtn').onclick = async () => {
+  const q = $('#askIn').value.trim(), out = $('#askOut'), btn = $('#askBtn')
+  if (!q) return
+  btn.disabled = true; btn.textContent = '…'
+  try { out.textContent = (await ai('ask', { question: q })).text } catch { out.textContent = NO_AI }
+  out.hidden = false; btn.disabled = false; btn.textContent = 'Ask'
+}
+$('#askIn').onkeydown = (e) => { if (e.key === 'Enter') $('#askBtn').click() }
+
+async function genTopics(s, btn) {
+  btn.disabled = true; btn.textContent = 'Thinking…'
+  try {
+    const { topics } = await ai('topics', { subject: s.name })
+    state.topics[s.id] = topics.map((t) => ({ t, done: false }))
+    save('sp-topics', state.topics); toast(`✨ Topics ready for ${s.name}`)
+  } catch { toast(NO_AI) }
+  render()
 }
 
 $('#date').min = iso(new Date())
