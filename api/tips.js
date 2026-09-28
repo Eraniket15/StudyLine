@@ -1,100 +1,17 @@
-module.exports = async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({
-      error: "Method not allowed",
-    });
-  }
-
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey) {
-    return res.status(500).json({
-      error: "Missing GEMINI_API_KEY",
-    });
-  }
-
-  try {
-    const { subjects = [], hours = 4 } = req.body || {};
-
-    if (!Array.isArray(subjects)) {
-      return res.status(400).json({
-        error: "Subjects must be an array",
-      });
-    }
-
-    const subjectList = subjects
-      .map((s) =>
-        `${s.name} (Exam: ${s.date}, Difficulty: ${s.difficulty})`
-      )
-      .join("\n");
-
-    const prompt = `
-You are Studyline, a helpful study planning assistant.
-
-The student can study ${hours} hours per day.
-
-Subjects and exam dates:
-${subjectList || "No subjects added yet."}
-
-Generate 5 short, practical study tips.
-Prioritize difficult subjects and approaching exams.
-Include revision, practice questions, and breaks.
-Use numbered plain-text tips.
-`;
-
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 600,
-          },
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("Gemini API error:", response.status, data);
-
-      return res.status(502).json({
-        error: "Gemini API request failed",
-        details: data.error?.message || "Unknown API error",
-      });
-    }
-
-    const tips =
-      data.candidates?.[0]?.content?.parts
-        ?.map((part) => part.text || "")
-        .join("\n")
-        .trim();
-
-    if (!tips) {
-      return res.status(502).json({
-        error: "Gemini returned no study tips",
-      });
-    }
-
-    return res.status(200).json({ tips });
-  } catch (error) {
-    console.error("Study tips error:", error);
-
-    return res.status(500).json({
-      error: "Unable to generate study tips",
-    });
-  }
-};
+// Vercel serverless function: keeps your API key secret on the server.
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).end()
+  const { subjects = [], hours = 4 } = req.body || {}
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'Missing API key' })
+  const list = subjects.map((s) => `${s.name} (exam ${s.date}, difficulty ${s.difficulty}/3)`).join('; ')
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-5', max_tokens: 500,
+      messages: [{ role: 'user', content: `A student studies ${hours} hours/day for: ${list}. Give 5 short, specific study tips tailored to these subjects and deadlines. Plain text, one tip per line.` }],
+    }),
+  })
+  const data = await r.json()
+  res.status(r.ok ? 200 : 500).json({ tips: data.content?.[0]?.text || 'No tips available.' })
+}
