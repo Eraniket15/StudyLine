@@ -1,56 +1,69 @@
+// Vercel serverless function: /api/tips
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
     return res.status(405).json({
       error: "Method not allowed",
     });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     return res.status(500).json({
-      error: "Missing ANTHROPIC_API_KEY",
-    });
-  }
-
-  const { subjects, hours = 4 } = req.body || {};
-
-  if (!Array.isArray(subjects) || subjects.length === 0) {
-    return res.status(400).json({
-      error: "Please add at least one subject",
+      error: "Missing GEMINI_API_KEY environment variable",
     });
   }
 
   try {
+    const { subjects = [], hours = 4 } = req.body || {};
+
+    if (!Array.isArray(subjects)) {
+      return res.status(400).json({
+        error: "Subjects must be an array",
+      });
+    }
+
+    const subjectList = subjects
+      .map((s) => {
+        return `${s.name} (Exam: ${s.date}, Difficulty: ${s.difficulty})`;
+      })
+      .join("\n");
+
+    const prompt = `
+You are a helpful study planning assistant.
+
+The student can study ${hours} hours per day.
+
+Their subjects and exam dates:
+${subjectList || "No subjects added yet."}
+
+Give 5 short, practical study tips tailored to these subjects,
+exam dates, difficulty levels, and available study hours.
+
+Use plain text with numbered tips.
+Keep the advice encouraging and specific.
+`;
+
     const response = await fetch(
-      "https://api.anthropic.com/v1/messages",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
+          "x-goog-api-key": apiKey,
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 700,
-          system:
-            "You are Studyline, a friendly study coach. " +
-            "Give five short, practical study tips tailored " +
-            "to the student's subjects, exam dates, difficulty, " +
-            "and available study hours. Use plain text.",
-          messages: [
+          contents: [
             {
               role: "user",
-              content:
-                "Create study tips for these subjects: " +
-                JSON.stringify(subjects.slice(0, 30)) +
-                ". Available study hours per day: " +
-                Number(hours) +
-                ". Give five specific, actionable tips.",
+              parts: [{ text: prompt }],
             },
           ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 500,
+          },
         }),
       }
     );
@@ -58,30 +71,25 @@ module.exports = async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error(
-        "Anthropic API error:",
-        response.status,
-        data.error?.message || "Unknown error"
-      );
+      console.error("Gemini API error:", data);
 
       return res.status(502).json({
-        error: "Anthropic could not generate study tips",
+        error: "Gemini API request failed",
       });
     }
 
-    const tips = (data.content || [])
-      .filter((item) => item.type === "text")
-      .map((item) => item.text)
-      .join("\n");
+    const tips =
+      data.candidates?.[0]?.content?.parts
+        ?.map((part) => part.text || "")
+        .join("\n")
+        .trim() || "No tips available.";
 
-    return res.status(200).json({
-      tips: tips || "No study tips were generated.",
-    });
+    return res.status(200).json({ tips });
   } catch (error) {
     console.error("Study tips error:", error);
 
     return res.status(500).json({
-      error: "Failed to generate study tips",
+      error: "Unable to generate study tips",
     });
   }
 };
