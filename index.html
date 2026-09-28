@@ -12,7 +12,10 @@
   <div class="app">
     <header>
       <h1>Studyline</h1>
-      <button id="theme" class="ghost" aria-label="Toggle dark mode">Dark mode</button>
+      <div class="hbtns">
+        <button id="ics" class="ghost" title="Download plan for Google/Apple Calendar">📅 Export</button>
+        <button id="theme" class="ghost" aria-label="Toggle dark mode">Dark mode</button>
+      </div>
     </header>
     <p class="lede">Add your exams. Get a day-by-day plan that gives more time to harder subjects and closer deadlines.</p>
 
@@ -31,6 +34,32 @@
       <ul id="chips" class="chips"></ul>
     </section>
 
+    <section id="stats" class="panel" hidden>
+      <div id="tiles" class="tiles"></div>
+      <h3 class="sub">Exam countdown</h3>
+      <div id="exams" class="exams"></div>
+      <h3 class="sub">Next 7 days: planned vs done</h3>
+      <div id="chart" class="chart"></div>
+    </section>
+
+    <section id="timerPanel" class="panel timer" hidden>
+      <div id="ring" class="ring"><div id="clock">25:00</div></div>
+      <div class="tbody">
+        <h2>Focus timer</h2>
+        <p id="focusOn" class="muted">Pick a session or press Start.</p>
+        <div class="tbtns">
+          <button id="startBtn">Start</button>
+          <button id="resetBtn" class="ghost">Reset</button>
+        </div>
+        <div class="tbtns presets">
+          <button class="ghost pre" data-min="25" data-label="Focus 25">Focus 25</button>
+          <button class="ghost pre" data-min="50" data-label="Focus 50">Focus 50</button>
+          <button class="ghost pre" data-min="5" data-label="Break 5">Break 5</button>
+          <button class="ghost pre" data-min="15" data-label="Break 15">Break 15</button>
+        </div>
+      </div>
+    </section>
+
     <section id="progress" class="panel" hidden>
       <div class="progress-head"><h2>Progress</h2><span id="progressText"></span></div>
       <div class="bar"><div id="barFill"></div></div>
@@ -40,9 +69,15 @@
       </div>
     </section>
 
+    <nav id="tabs" class="tabs" hidden>
+      <button class="tab" data-v="today">Today</button>
+      <button class="tab" data-v="week">Next 7 days</button>
+      <button class="tab" data-v="all">Full plan</button>
+    </nav>
     <section id="days" class="days"></section>
     <p id="empty" class="empty">No plan yet. Add a subject with an exam date after today to generate your schedule.</p>
   </div>
+  <div id="toast" class="toast" hidden></div>
   <script src="script.js"></script>
 </body>
 </html>
