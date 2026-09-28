@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Studyline – AI Study Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Studyline</h1>
+      <button id="theme" class="ghost" aria-label="Toggle dark mode">Dark mode</button>
+    </header>
+    <p class="lede">Add your exams. Get a day-by-day plan that gives more time to harder subjects and closer deadlines.</p>
+
+    <section class="panel">
+      <div class="row">
+        <label>Subject<input id="name" type="text" placeholder="e.g. Data Structures" /></label>
+        <label>Exam date<input id="date" type="date" /></label>
+        <label>Difficulty
+          <select id="difficulty"><option value="1">Easy</option><option value="2" selected>Medium</option><option value="3">Hard</option></select>
+        </label>
+        <button id="add">Add subject</button>
+      </div>
+      <label class="hours">Study hours per day: <b id="hoursLabel">4</b>
+        <input id="hours" type="range" min="1" max="12" value="4" />
+      </label>
+      <ul id="chips" class="chips"></ul>
+    </section>
+
+    <section id="progress" class="panel" hidden>
+      <div class="progress-head"><h2>Progress</h2><span id="progressText"></span></div>
+      <div class="bar"><div id="barFill"></div></div>
+      <div class="tips">
+        <button id="tipsBtn" class="ghost">Get AI study tips</button>
+        <p id="tipsOut" hidden></p>
+      </div>
+    </section>
+
+    <section id="days" class="days"></section>
+    <p id="empty" class="empty">No plan yet. Add a subject with an exam date after today to generate your schedule.</p>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
