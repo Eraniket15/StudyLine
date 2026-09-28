@@ -13,5 +13,9 @@ export default async function handler(req, res) {
     }),
   })
   const data = await r.json()
-  res.status(r.ok ? 200 : 500).json({ tips: data.content?.[0]?.text || 'No tips available.' })
+  if (!r.ok) {
+    console.error('Anthropic API error:', r.status, JSON.stringify(data))
+    return res.status(500).json({ error: data.error?.message || 'Anthropic API error', status: r.status })
+  }
+  res.status(200).json({ tips: data.content?.[0]?.text || 'No tips available.' })
 }
