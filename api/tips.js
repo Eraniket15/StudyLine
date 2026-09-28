@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-sonnet-5', max_tokens: 500,
+      model: 'claude-sonnet-4-6', max_tokens: 500,
       messages: [{ role: 'user', content: `A student studies ${hours} hours/day for: ${list}. Give 5 short, specific study tips tailored to these subjects and deadlines. Plain text, one tip per line.` }],
     }),
   })
