@@ -8,10 +8,10 @@ export default async function handler(req, res) {
   const prompt = `A student studies ${hours} hours/day for: ${list}. Give 5 short, specific study tips tailored to these subjects and deadlines. Plain text, one tip per line, no markdown.`
 
   const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
     {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
     }
   )
