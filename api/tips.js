@@ -1,3 +1,5 @@
+// Vercel serverless function for all Studyline AI features (coach, ask, topics).
+// The Gemini key lives ONLY here, as an environment variable. It never reaches the browser.
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash'
 const clip = (s, n) => String(s ?? '').slice(0, n)
 
@@ -12,6 +14,7 @@ export default async function handler(req, res) {
   if (mode === 'ask' && !clip(b.question, 300).trim()) return res.status(400).json({ error: 'Empty question' })
   if (mode === 'topics' && !clip(b.subject, 60).trim()) return res.status(400).json({ error: 'Missing subject' })
 
+  // Build a compact, sanitised context from what the app sends
   const subjects = (Array.isArray(b.subjects) ? b.subjects.slice(0, 15) : [])
     .map((s) => `${clip(s.name, 60)} (exam ${clip(s.date, 10)}, difficulty ${+s.difficulty || 2}/3)`).join('; ') || 'none yet'
   const st = b.stats || {}
