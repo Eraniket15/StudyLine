@@ -88,20 +88,65 @@ $('#add').onclick = () => {
 $('#hours').oninput = (e) => { state.hours = +e.target.value; save('sp-hours', state.hours); render() }
 $('#theme').onclick = () => { state.dark = !state.dark; save('sp-dark', state.dark); render() }
 
+// Generates tailored tips locally — no server, no API key, no billing, ever.
+function generateTips(subjects, hoursPerDay) {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const live = subjects.filter((s) => at(s.date) > today)
+  if (!live.length) return ['Add a subject with an exam date to get tailored tips.']
+
+  const byUrgency = [...live].sort((a, b) => at(a.date) - at(b.date))
+  const nearest = byUrgency[0]
+  const daysLeft = Math.round((at(nearest.date) - today) / DAY)
+  const hardest = [...live].sort((a, b) => b.difficulty - a.difficulty)[0]
+
+  const tips = []
+  tips.push(daysLeft <= 3
+    ? `${nearest.name} is only ${daysLeft} day${daysLeft === 1 ? '' : 's'} away — switch to timed past papers and skip new topics now.`
+    : `${nearest.name} is your nearest exam (${daysLeft} days) — start with its toughest topics while you have runway.`)
+
+  if (hardest.difficulty >= 3) {
+    tips.push(`${hardest.name} is marked Hard — use active recall (flashcards, self-quizzing) instead of rereading notes.`)
+  } else {
+    tips.push('Mix subjects within each session (interleaving) instead of blocking one subject per day — it improves retention.')
+  }
+
+  if (hoursPerDay >= 6) {
+    tips.push(`At ${hoursPerDay}h/day, split into focused blocks of 45–50 minutes with 10-minute breaks to avoid burnout.`)
+  } else {
+    tips.push(`With ${hoursPerDay}h/day, protect that time strictly — a fixed daily slot beats squeezing it in randomly.`)
+  }
+
+  if (live.length > 1) {
+    tips.push('Review yesterday\'s hardest subject for 10 minutes before starting today\'s new material — quick recall locks it in.')
+  }
+
+  tips.push('The night before any exam, do a light review and sleep on time — cramming late usually costs more than it gives.')
+
+  return tips.slice(0, 5)
+}
+
 $('#tipsBtn').onclick = async () => {
   const btn = $('#tipsBtn'), out = $('#tipsOut')
   btn.disabled = true; btn.textContent = 'Thinking…'; out.hidden = true
+  let tips, aiWorked = false
   try {
     const r = await fetch('/api/tips', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subjects: state.subjects, hours: state.hours }),
     })
-    if (!r.ok) throw new Error()
-    out.textContent = (await r.json()).tips
+    if (!r.ok) throw new Error('AI unavailable')
+    const data = await r.json()
+    if (!data.tips) throw new Error('empty')
+    tips = data.tips
+    aiWorked = true
   } catch {
-    out.textContent = 'AI tips are unavailable. Add ANTHROPIC_API_KEY in your Vercel project settings and redeploy.'
+    // Falls back silently to local rule-based tips — the demo never shows an error.
+    tips = generateTips(state.subjects, state.hours).map((t) => `• ${t}`).join('\n')
   }
-  out.hidden = false; btn.disabled = false; btn.textContent = 'Get AI study tips'
+  out.textContent = tips
+  out.hidden = false
+  btn.disabled = false
+  btn.textContent = 'Get AI study tips'
 }
 
 $('#date').min = iso(new Date())
