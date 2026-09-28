@@ -42,6 +42,11 @@
       <div id="chart" class="chart"></div>
     </section>
 
+    <section id="topicsPanel" class="panel" hidden>
+      <h3 class="sub" style="margin-top:0">Topic checklist (AI)</h3>
+      <div id="topics" class="exams"></div>
+    </section>
+
     <section id="timerPanel" class="panel timer" hidden>
       <div id="ring" class="ring"><div id="clock">25:00</div></div>
       <div class="tbody">
@@ -64,8 +69,14 @@
       <div class="progress-head"><h2>Progress</h2><span id="progressText"></span></div>
       <div class="bar"><div id="barFill"></div></div>
       <div class="tips">
-        <button id="tipsBtn" class="ghost">Get AI study tips</button>
+        <button id="tipsBtn" class="ghost">✨ Get AI coach advice</button>
+        <small id="tipsSrc" class="muted" hidden></small>
         <p id="tipsOut" hidden></p>
+        <div class="askrow">
+          <input id="askIn" type="text" maxlength="300" placeholder="Ask the AI coach, e.g. How to revise Data Structures in 3 days?" />
+          <button id="askBtn">Ask</button>
+        </div>
+        <p id="askOut" hidden></p>
       </div>
     </section>
 
