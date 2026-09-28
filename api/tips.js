@@ -1,5 +1,6 @@
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
     return res.status(405).json({
       error: "Method not allowed",
     });
@@ -8,10 +9,8 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
-    console.error("ANTHROPIC_API_KEY is missing");
-
     return res.status(500).json({
-      error: "AI is not configured",
+      error: "Missing ANTHROPIC_API_KEY",
     });
   }
 
@@ -39,15 +38,17 @@ export default async function handler(req, res) {
           system:
             "You are Studyline, a friendly study coach. " +
             "Give five short, practical study tips tailored " +
-            "to the student's subjects, exam dates, " +
-            "difficulty levels, and available study hours. " +
-            "Use plain text, with one tip per line.",
+            "to the student's subjects, exam dates, difficulty, " +
+            "and available study hours. Use plain text.",
           messages: [
             {
               role: "user",
-              content: `Create personalized study tips for these subjects: ${JSON.stringify(
-                subjects.slice(0, 30)
-              )}. Available study hours per day: ${Number(hours)}.`,
+              content:
+                "Create study tips for these subjects: " +
+                JSON.stringify(subjects.slice(0, 30)) +
+                ". Available study hours per day: " +
+                Number(hours) +
+                ". Give five specific, actionable tips.",
             },
           ],
         }),
@@ -60,11 +61,11 @@ export default async function handler(req, res) {
       console.error(
         "Anthropic API error:",
         response.status,
-        data.error?.type || "unknown"
+        data.error?.message || "Unknown error"
       );
 
       return res.status(502).json({
-        error: "Unable to generate AI study tips",
+        error: "Anthropic could not generate study tips",
       });
     }
 
@@ -77,10 +78,10 @@ export default async function handler(req, res) {
       tips: tips || "No study tips were generated.",
     });
   } catch (error) {
-    console.error("Study tips error:", error.message);
+    console.error("Study tips error:", error);
 
     return res.status(500).json({
-      error: "An unexpected server error occurred",
+      error: "Failed to generate study tips",
     });
   }
-}
+};
