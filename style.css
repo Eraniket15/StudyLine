@@ -69,3 +69,7 @@ button:disabled{opacity:.6;cursor:wait}
 @keyframes pop{to{transform:translate(var(--x),var(--y)) rotate(360deg);opacity:0}}
 @media(max-width:720px){.hbtns{flex-wrap:wrap;justify-content:flex-end}.timer{justify-content:center}}
 @media(prefers-reduced-motion:reduce){.confetti{display:none}}
+
+.mini{padding:4px 10px;font-size:.78rem;margin-top:8px;align-self:flex-start}
+.askrow{display:flex;gap:8px;margin-top:14px}.askrow input{flex:1;min-width:0}
+#tipsSrc{margin-left:10px}
